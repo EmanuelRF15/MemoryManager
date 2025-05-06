@@ -11,8 +11,6 @@ public class MemoryManager {
     // FIFO queue to manage memory allocation order
     private final Queue<Request> allocationQueue;
 
-    // Total heap size (in ints and pages)
-    private final int totalInts;
     private final boolean[] pageOccupied;
     private final int totalPages;
 
@@ -25,7 +23,8 @@ public class MemoryManager {
     public MemoryManager(int heapSizeKB, int pageSizeBytes){
         this.pageSizeBytes = pageSizeBytes;
         this.intsPerPage = pageSizeBytes / 4; // 1 int = 4 bytes
-        this.totalInts = (heapSizeKB * 1024) / 4;  // total heap size in ints
+        // Total heap size (in ints and pages)
+        int totalInts = (heapSizeKB * 1024) / 4;  // total heap size in ints
         this.totalPages = totalInts / intsPerPage;
 
         this.heap = new int[totalInts]; // the heap itself
