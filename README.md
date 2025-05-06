@@ -75,6 +75,10 @@ src/
 
 ├── RequestGenerator.java  // Generates random requests
 
+## UML
+
+![UML Diagram](./uml-diagram.png)
+
 ## ✅ How to Run
 
 1. Compile the project:
