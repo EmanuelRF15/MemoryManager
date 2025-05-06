@@ -91,3 +91,12 @@ java Main
 
 * Simulate **multi-threaded allocation**
 * Implement **GUI visualization** using JavaFX or Swing
+
+## 📚 References
+
+- **SILBERSCHATZ, A.; GALVIN, P. B.; GAGNE, G.** *Operating System Concepts with Java.* 7th edition. Rio de Janeiro: Campus, 2007.  
+- **TANENBAUM, A. S.; BOS, H.** *Modern Operating Systems.* 4th edition. Pearson, 2015.  
+- **MAZIERO, C. A.** *Memory Management – Chapter 5 from the Operating Systems book.* Federal University of Paraná (UFPR).  
+  Available at: [https://wiki.inf.ufpr.br/maziero/lib/exe/fetch.php?media=socm-velho:so-cap05.pdf](https://wiki.inf.ufpr.br/maziero/lib/exe/fetch.php?media=socm-velho:so-cap05.pdf)  
+- **ORACLE.** *The Java™ Tutorials: Concurrency.*  
+  Available at: [https://docs.oracle.com/javase/tutorial/essential/concurrency/](https://docs.oracle.com/javase/tutorial/essential/concurrency/)
