@@ -15,6 +15,7 @@ public class MemoryManager {
     private final int totalPages;
 
     // Statistics
+    private int totalWastedBytes = 0;
     private int totalRequestsHandled = 0;
     private int totalBytesAllocated = 0;
     private int totalRequestsRemoved = 0;
@@ -29,13 +30,16 @@ public class MemoryManager {
 
         this.heap = new int[totalInts]; // the heap itself
         this.pageOccupied = new boolean[totalPages]; // page occupancy status
-        this.allocationQueue = new LinkedList<>(); // queue for FIFO policy
+        this.allocationQueue = new LinkedList<>(); // queue for FIFO policyP
     }
 
     // Attempts to allocate memory for a request
     public boolean allocate(Request request) {
         // Calculate how many pages are needed for the request
         int pagesNeeded = (int) Math.ceil((double) request.sizeBytes / pageSizeBytes);
+        int bytesAllocated = pagesNeeded * pageSizeBytes;
+        int wasted = bytesAllocated - request.sizeBytes;
+        totalWastedBytes += wasted;
 
         // Try to find free pages
         List<Integer> freePages = findFreePages(pagesNeeded);
@@ -114,15 +118,20 @@ public class MemoryManager {
                 totalRequestsHandled == 0 ? 0.0 : (double) totalBytesAllocated / totalRequestsHandled);
         System.out.println("Total variables removed: " + totalRequestsRemoved);
         System.out.println("Memory release calls: " + releaseCalls);
+        System.out.println("Total bytes unused (Internal fragmentation): " + totalWastedBytes);
+        System.out.printf("Average waste per allocation: %.2f%%\n",
+                totalRequestsHandled == 0 ? 0.0 : ((double) totalWastedBytes / totalBytesAllocated) * 100);
+
         System.out.println("Total execution time: " + totalTimeMillis + "ms");
+
     }
 
     // Prints a visual representation of the heap using colored blocks
     public void printHeapVisual() {
         final String RESET = "\u001B[0m";
-        final String GREEN = "\u001B[42m"; // LIVRE
-        final String BLUE = "\u001B[44m";  // ID ÚNICO
-        final String ORANGE = "\u001B[43m"; // MISTO
+        final String GREEN = "\u001B[42m"; // Available
+        final String BLUE = "\u001B[44m";  // ID
+        final String ORANGE = "\u001B[43m"; // Mixed
         final String BLACK_TEXT = "\u001B[30m";
 
         System.out.println("\n--- Heap Visualization (each block = 1 page) ---");

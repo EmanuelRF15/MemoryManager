@@ -18,7 +18,8 @@ public class Main {
         System.out.print("Maximum variable size (in bytes) [default = 1024]: ");
         int maxSize = scanner.hasNextInt() ? scanner.nextInt() : 1024;
 
-        final int pageSizeBytes = 64; // Fixed page size (64 bytes per page)
+        System.out.print("Page size(in bytes) [default = 64]: ");
+        int pageSizeBytes = scanner.hasNextInt() ? scanner.nextInt() : 64;
 
         // --- Initialization of memory manager and request generator ---
         MemoryManager memoryManager = new MemoryManager(heapSizeKB, pageSizeBytes);
