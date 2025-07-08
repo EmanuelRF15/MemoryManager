@@ -1,4 +1,8 @@
 import java.util.*;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class MemoryManager {
     // Represents the heap as an array of integers (each int = 4 bytes)
@@ -14,12 +18,14 @@ public class MemoryManager {
     private final boolean[] pageOccupied;
     private final int totalPages;
 
+    Semaphore heapSemaphore = new Semaphore(1);
+
     // Statistics
-    private int totalWastedBytes = 0;
-    private int totalRequestsHandled = 0;
-    private int totalBytesAllocated = 0;
-    private int totalRequestsRemoved = 0;
-    private int releaseCalls = 0;
+    private final AtomicInteger totalWastedBytes = new AtomicInteger();
+    private final AtomicInteger totalRequestsHandled = new AtomicInteger();
+    private final AtomicInteger totalBytesAllocated = new AtomicInteger();
+    private final AtomicInteger totalRequestsRemoved = new AtomicInteger();
+    private final AtomicInteger releaseCalls = new AtomicInteger();
 
     public MemoryManager(int heapSizeKB, int pageSizeBytes){
         this.pageSizeBytes = pageSizeBytes;
@@ -30,7 +36,8 @@ public class MemoryManager {
 
         this.heap = new int[totalInts]; // the heap itself
         this.pageOccupied = new boolean[totalPages]; // page occupancy status
-        this.allocationQueue = new LinkedList<>(); // queue for FIFO policyP
+        this.allocationQueue = new ConcurrentLinkedQueue<>();
+        // queue for FIFO policyP
     }
 
     // Attempts to allocate memory for a request
@@ -39,15 +46,31 @@ public class MemoryManager {
         int pagesNeeded = (int) Math.ceil((double) request.sizeBytes / pageSizeBytes);
         int bytesAllocated = pagesNeeded * pageSizeBytes;
         int wasted = bytesAllocated - request.sizeBytes;
-        totalWastedBytes += wasted;
+        totalWastedBytes.addAndGet(wasted);
 
         // Try to find free pages
-        List<Integer> freePages = findFreePages(pagesNeeded);
+        List<Integer> freePages;
+        try {
+            heapSemaphore.acquire();
+            freePages = findFreePages(pagesNeeded);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            heapSemaphore.release();
+        }
+
 
         // Not enough space? Try to free memory
         if (freePages.size() < pagesNeeded) {
-            releaseMemory(); // libera espaço se necessário
-            freePages = findFreePages(pagesNeeded);
+            try {
+                heapSemaphore.acquire();
+                releaseMemory();
+                freePages = findFreePages(pagesNeeded);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            } finally {
+                heapSemaphore.release();
+            }
 
             // Still not enough space? Allocation fails
             if (freePages.size() < pagesNeeded) {
@@ -56,12 +79,21 @@ public class MemoryManager {
         }
 
         // Allocate the required number of pages
-        for (int pageIndex : freePages.subList(0, pagesNeeded)) {
-            pageOccupied[pageIndex] = true;
+        List<Integer> selectedPages = freePages.subList(0, pagesNeeded);
+
+        for (int pageIndex : selectedPages) {
             int start = pageIndex * intsPerPage;
             int end = start + intsPerPage;
+            try {
+                heapSemaphore.acquire();
+                pageOccupied[pageIndex] = true;
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }  finally {
+                heapSemaphore.release();
+            }
             for (int i = start; i < end; i++) {
-                heap[i] = request.id; // Fill the heap with the request ID
+                        heap[i] = request.id;
             }
         }
 
@@ -71,8 +103,8 @@ public class MemoryManager {
         allocationQueue.add(request); // Add to allocation queue
 
         // Update statistics
-        totalRequestsHandled++;
-        totalBytesAllocated += request.sizeBytes;
+        totalRequestsHandled.incrementAndGet();
+        totalBytesAllocated.addAndGet(request.sizeBytes);
 
         return true;
     }
@@ -90,7 +122,7 @@ public class MemoryManager {
 
     // Frees memory using FIFO until at least 30% of the heap is freed
     private void releaseMemory() {
-        releaseCalls++;
+        releaseCalls.incrementAndGet();
         int pagesToFree = (int) Math.ceil(totalPages * 0.3);
         int pagesFreed = 0;
 
@@ -98,29 +130,35 @@ public class MemoryManager {
         while (!allocationQueue.isEmpty() && pagesFreed < pagesToFree) {
             Request oldest = allocationQueue.poll();
             for (int pageIndex : oldest.pagesAllocated) {
-                pageOccupied[pageIndex] = false;
                 int start = pageIndex * intsPerPage;
                 int end = start + intsPerPage;
+                pageOccupied[pageIndex] = false;
                 for (int i = start; i < end; i++) {
                     heap[i] = 0; // Clear memory
                 }
                 pagesFreed++;
             }
-            totalRequestsRemoved++;
+            totalRequestsRemoved.incrementAndGet();
         }
     }
 
     // Prints execution statistics
     public void printStats(long totalTimeMillis) {
+        int handled = totalRequestsHandled.get();
+        int allocated = totalBytesAllocated.get();
+        int removed = totalRequestsRemoved.get();
+        int releases = releaseCalls.get();
+        int wasted = totalWastedBytes.get();
+
         System.out.println("\n--- Execution Statistics ---");
-        System.out.println("Total requests handled: " + totalRequestsHandled);
+        System.out.println("Total requests handled: " + handled);
         System.out.printf("Average variable size: %.2f bytes%n",
-                totalRequestsHandled == 0 ? 0.0 : (double) totalBytesAllocated / totalRequestsHandled);
-        System.out.println("Total variables removed: " + totalRequestsRemoved);
-        System.out.println("Memory release calls: " + releaseCalls);
-        System.out.println("Total bytes unused (Internal fragmentation): " + totalWastedBytes);
+                handled == 0 ? 0.0 : (double) allocated / handled);
+        System.out.println("Total variables removed: " + removed);
+        System.out.println("Memory release calls: " + releases);
+        System.out.println("Total bytes unused (Internal fragmentation): " + wasted);
         System.out.printf("Average waste per allocation: %.2f%%\n",
-                totalRequestsHandled == 0 ? 0.0 : ((double) totalWastedBytes / totalBytesAllocated) * 100);
+                handled == 0 ? 0.0 : ((double) wasted / allocated) * 100);
 
         System.out.println("Total execution time: " + totalTimeMillis + "ms");
 
