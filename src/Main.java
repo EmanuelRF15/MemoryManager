@@ -47,7 +47,7 @@ public class Main {
             thread.start();
         }
 
-// Aguarda todas as threads terminarem
+        // --- Wait to until every thread ends ---
         for (Thread thread : threads) {
             try {
                 thread.join();
