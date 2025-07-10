@@ -61,7 +61,7 @@ public class MemoryManager {
 
 
         // Not enough space? Try to free memory
-        if (freePages.size() < pagesNeeded) {
+        while (freePages.size() < pagesNeeded) {
             try {
                 heapSemaphore.acquire();
                 releaseMemory();
@@ -72,10 +72,6 @@ public class MemoryManager {
                 heapSemaphore.release();
             }
 
-            // Still not enough space? Allocation fails
-            if (freePages.size() < pagesNeeded) {
-                return false; // Falha mesmo após liberar memória
-            }
         }
 
         // Allocate the required number of pages

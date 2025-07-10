@@ -1,8 +1,6 @@
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
     public static void main(String[] args) {
@@ -35,29 +33,29 @@ public class Main {
         long startTime = System.currentTimeMillis();
 
         // --- Try to allocate memory for each request ---
-        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+        List<Thread> threads = new ArrayList<>();
 
         for (Request request : requests) {
-            executor.submit(() -> {
+            Thread thread = new Thread(() -> {
                 boolean success = memoryManager.allocate(request);
                 if (!success) {
                     System.out.println("Error: Failed to allocate request ID " + request.id);
                 }
             });
+
+            threads.add(thread);
+            thread.start();
         }
 
-// Finaliza o executor e espera todas as requisições terminarem
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(5, TimeUnit.MINUTES)) {
-                System.out.println("Timeout while waiting for allocation threads.");
-                executor.shutdownNow();
+// Aguarda todas as threads terminarem
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.out.println("Thread interrupted while waiting.");
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            executor.shutdownNow();
         }
-
         long endTime = System.currentTimeMillis();
         long elapsed = endTime - startTime;
 
